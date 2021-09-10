@@ -4,7 +4,8 @@ using Soneta.Types;
 using Soneta.CRM;
 using Soneta.Business.UI;
 using Soneta.Szkolenie.Assembler.Tests;
-
+using System;
+using Soneta.Test;
 
 namespace Soneta.Szkolenie.Tests
 {
@@ -16,14 +17,54 @@ namespace Soneta.Szkolenie.Tests
             base.TestSetup();
 
             // Dodanie kontrahentów za pomocą utworzonych Assemblerów 
-            NowyTest()
-               .NowyKontrahent("Nowy1")
-               .NowyKontrahent("Nowy2","10")
-               .NowyKontrahent("Nowy3","30")
-               .NowyKontrahent("Nowy4")
-               .NowyKontrahent("Nowy5","10")
-               .NowyKontrahent("Nowy6","30")
-               .Build();
+            var arrayKontrahenciBuilder = new[] {
+               NowyKontrahent("Nowy1"),
+               NowyKontrahent("Nowy2", "10"),
+               NowyKontrahent("Nowy3", "30"),
+               NowyKontrahent("Nowy4"),
+               NowyKontrahent("Nowy5", "10"),
+               NowyKontrahent("Nowy6", "30"),
+               };
+            Kontrahent[] t =  arrayKontrahenciBuilder.Build();
+
+            // chcemy utworzyc k. w okreslonej kategorii dostarczonej przez kontekst.
+            var builder = NowyKontrahent("k.kat.")
+                .Enqueue(x => { });
+            Assert.That(builder.Build(), Is.Not.Null);
+
+            builder.Enqueue(x => { });
+            //Assert.That(builder.Build(), Is.Not.Null);
+
+            //var refK = builder.Utwórz();
+            Assert.That(builder.Utwórz(), Is.Not.Null);
+
+            builder.Enqueue(x => { });
+            Assert.That(builder.Utwórz(), Is.Not.Null);
+
+            builder.Usuń().Utwórz();
+
+
+
+            var c = new Soneta.Test.Helpers.ContextBasedRow<Kontrahent>(Context);
+            var k = c.Row;
+            var w = c.GetWorker<KontaktOsobaDodajOswiadczeniaWorker>();
+
+            builder.Enqueue((kth, cx) =>
+            {
+                var cxRow = new Soneta.Test.Helpers.ContextBasedRow<Kontrahent>(kth, cx);
+                var worker = cxRow.GetWorker<KontaktOsobaDodajOswiadczeniaWorker>();
+                worker.DodajOświadczenia();
+            });
+
+            builder.Build( cx=> { cx.Set(new Kontrahent[] { }) } );
+
+
+
+
+
+
+
+
 
             // Wybór kontrahentów na których zostanie ustawiony Rabat 
             Context.Set(new Kontrahent[3] {
@@ -33,7 +74,15 @@ namespace Soneta.Szkolenie.Tests
                 });
         }
 
-        
+        private IRowBuilder<Kontrahent> NowyKontrahent(string v1, string v2 = "0")
+        {
+            IRowBuilder<Kontrahent> b = new RowBuilder<Kontrahent>();
+            b
+                .Enqueue(x => x.Kod = v1)
+                .Enqueue(x => x.RabatTowaru = Percent.Parse(v2));
+            return b;
+        }
+
         [Test]
         public void UstawRabatWorkerTest_DodacFalse_ObnizacFalse()
         {
